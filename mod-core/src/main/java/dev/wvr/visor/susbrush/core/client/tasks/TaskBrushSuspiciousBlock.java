@@ -76,23 +76,28 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
             return;
         }
 
+        Vec3 prevBrushTip = handState.lastBrushTip;
+        handState.lastBrushTip = brushTip;
+
         BrushContact contact = findBrushContact(level, brushTip);
         if (contact == null) {
-            handState.reset();
             return;
         }
 
-        if (!handState.matches(contact.pos(), contact.face())) {
+        if (!contact.pos().equals(handState.targetPos)) {
             handState.startTracking(contact.pos(), contact.face(), brushTip);
             return;
         }
 
-        Vec3 tipDelta = brushTip.subtract(handState.lastBrushTip);
-        handState.lastBrushTip = brushTip;
+        Direction trackedFace = handState.hitFace != null ? handState.hitFace : contact.face();
+        handState.hitFace = trackedFace;
 
-        double surfaceMovement = projectOntoFace(tipDelta, contact.face()).length();
-        if (surfaceMovement >= AddonUtils.MIN_SURFACE_MOVEMENT) {
-            handState.accumulatedMovement = Math.min(AddonUtils.REQUIRED_SURFACE_MOVEMENT, handState.accumulatedMovement + surfaceMovement);
+        if (prevBrushTip != null) {
+            Vec3 tipDelta = brushTip.subtract(prevBrushTip);
+            double surfaceMovement = projectOntoFace(tipDelta, trackedFace).length();
+            if (surfaceMovement >= AddonUtils.MIN_SURFACE_MOVEMENT) {
+                handState.accumulatedMovement = Math.min(AddonUtils.REQUIRED_SURFACE_MOVEMENT, handState.accumulatedMovement + surfaceMovement);
+            }
         }
 
         if (handState.accumulatedMovement < AddonUtils.REQUIRED_SURFACE_MOVEMENT) {
@@ -111,7 +116,7 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
         brushItem.spawnDustParticles(level, hitResult, contact.state(), handDirection, getHumanoidArm(player, interactionHand));
         playBrushSound(level, contact);
         VisorAPI.client().getInputManager().triggerHapticPulse(handType, 0.08F);
-        sendBrushPacket(interactionHand, contact.pos(), contact.face());
+        sendBrushPacket(interactionHand, contact.pos(), trackedFace, contact.hitLocation());
     }
 
     private BrushContact findBrushContact(Level level, Vec3 brushTip) {
@@ -200,11 +205,14 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
         }
     }
 
-    private void sendBrushPacket(InteractionHand hand, BlockPos pos, Direction hitFace) {
+    private void sendBrushPacket(InteractionHand hand, BlockPos pos, Direction hitFace, Vec3 hitLocation) {
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
         buf.writeEnum(hand);
         buf.writeBlockPos(pos);
         buf.writeEnum(hitFace);
+        buf.writeDouble(hitLocation.x);
+        buf.writeDouble(hitLocation.y);
+        buf.writeDouble(hitLocation.z);
         NetworkHelper.sendToServer(AddonNetworking.BRUSH_BLOCK_C2S, buf);
     }
 
@@ -257,13 +265,9 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
     private static final class BrushHandState {
         private BlockPos targetPos;
         private Direction hitFace;
-        private Vec3 lastBrushTip = Vec3.ZERO;
+        private Vec3 lastBrushTip = null;
         private double accumulatedMovement;
         private long lastBrushTick = -AddonUtils.BRUSH_INTERVAL_TICKS;
-
-        private boolean matches(BlockPos pos, Direction face) {
-            return pos.equals(targetPos) && face == hitFace;
-        }
 
         private void startTracking(BlockPos pos, Direction face, Vec3 brushTip) {
             targetPos = pos.immutable();
@@ -275,7 +279,7 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
         private void reset() {
             targetPos = null;
             hitFace = null;
-            lastBrushTip = Vec3.ZERO;
+            lastBrushTip = null;
             accumulatedMovement = 0.0D;
             lastBrushTick = -AddonUtils.BRUSH_INTERVAL_TICKS;
         }

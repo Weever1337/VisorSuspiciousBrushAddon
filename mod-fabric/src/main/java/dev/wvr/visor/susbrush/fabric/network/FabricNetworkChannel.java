@@ -22,8 +22,10 @@ public class FabricNetworkChannel implements NetworkChannel {
     public void registerReceiver(ResourceLocation id, PacketHandler handler) {
         ServerPlayNetworking.registerGlobalReceiver(id, (server, player, handler1, buf, responseSender) -> {
             byte[] data = buf.readByteArray();
-            FriendlyByteBuf newBuf = new FriendlyByteBuf(Unpooled.wrappedBuffer(data));
-            handler.handle(newBuf, player);
+            server.execute(() -> {
+                FriendlyByteBuf newBuf = new FriendlyByteBuf(Unpooled.wrappedBuffer(data));
+                handler.handle(newBuf, player);
+            });
         });
     }
 }

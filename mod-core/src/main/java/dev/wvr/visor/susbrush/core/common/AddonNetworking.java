@@ -9,6 +9,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BrushItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.BrushableBlock;
 import net.minecraft.world.level.block.entity.BrushableBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -22,6 +23,7 @@ public class AddonNetworking {
             InteractionHand hand = buf.readEnum(InteractionHand.class);
             BlockPos pos = buf.readBlockPos();
             Direction hitDirection = buf.readEnum(Direction.class);
+            Vec3 hitLocation = new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble());
             ServerLevel level = (ServerLevel) player.level();
             ItemStack heldItem = player.getItemInHand(hand);
             BlockState state = level.getBlockState(pos);
@@ -38,7 +40,11 @@ public class AddonNetworking {
                 return;
             }
 
-            if (player.position().distanceToSqr(Vec3.atCenterOf(pos)) > AddonUtils.MAX_BRUSH_DISTANCE_SQR) {
+            if (!new AABB(pos).inflate(1.0E-3D).contains(hitLocation)) {
+                return;
+            }
+
+            if (player.getEyePosition().distanceToSqr(hitLocation) > AddonUtils.MAX_BRUSH_DISTANCE_SQR) {
                 return;
             }
 

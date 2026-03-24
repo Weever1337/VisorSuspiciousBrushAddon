@@ -9,5 +9,5 @@ public class AddonUtils {
     public static final double REQUIRED_SURFACE_MOVEMENT = 0.065D;
     public static final int BRUSH_INTERVAL_TICKS = 10;
     public static final double MAX_TIP_TO_BLOCK_DISTANCE_SQR = MAX_TIP_TO_BLOCK_DISTANCE * MAX_TIP_TO_BLOCK_DISTANCE;
-    public static final double MAX_BRUSH_DISTANCE_SQR = 9.0D;
+    public static final double MAX_BRUSH_DISTANCE_SQR = 25.0D;
 }

@@ -8,7 +8,7 @@ plugins {
 }
 
 group = project_group
-project.version = "0.1-beta"
+project.version = "1.0.0"
 
 archivesBaseName = project_name
 
