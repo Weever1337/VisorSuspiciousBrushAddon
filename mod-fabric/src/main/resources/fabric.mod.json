@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "visor_susbrush",
+  "version": "${version}",
+  "name": "VisorSuspiciousBrush",
+  "description": "An immersive Visor addon that lets you physically interact with sus blocks using brush in VR",
+  "authors": [
+    "Weever"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.wvr.visor.susbrush.fabric.VRSusBrushFabric"
+    ]
+  },
+  "mixins": [
+    "vrsusbrush.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.14",
+    "minecraft": ["1.20", "1.20.1"],
+    "java": ">=17"
+  },
+  "breaks": {
+    "visor": "<0.3.0"
+  }
+}
