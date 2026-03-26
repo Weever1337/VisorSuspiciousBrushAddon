@@ -9,6 +9,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
@@ -20,6 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
@@ -81,6 +84,7 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
 
         BrushContact contact = findBrushContact(level, brushTip);
         if (contact == null) {
+            handState.reset();
             return;
         }
 
@@ -116,7 +120,9 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
         brushItem.spawnDustParticles(level, hitResult, contact.state(), handDirection, getHumanoidArm(player, interactionHand));
         playBrushSound(level, contact);
         VisorAPI.client().getInputManager().triggerHapticPulse(handType, 0.08F);
-        sendBrushPacket(interactionHand, contact.pos(), trackedFace, contact.hitLocation());
+        if (isBrushable(contact.state())) {
+            sendBrushPacket(interactionHand, contact.pos(), trackedFace, contact.hitLocation());
+        }
     }
 
     private BrushContact findBrushContact(Level level, Vec3 brushTip) {
@@ -129,11 +135,16 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
                 for (int z = -1; z <= 1; z++) { // bro wtf are you doing here?
                     BlockPos pos = centerPos.offset(x, y, z);
                     BlockState state = level.getBlockState(pos);
-                    if (!(state.getBlock() instanceof BrushableBlock)) {
+                    if (state.isAir()) {
                         continue;
                     }
 
-                    AABB blockBounds = new AABB(pos);
+                    VoxelShape shape = state.getShape(level, pos);
+                    if (shape.isEmpty()) {
+                        continue;
+                    }
+
+                    AABB blockBounds = shape.bounds().move(pos);
                     Vec3 hitLocation = new Vec3(
                             clamp(brushTip.x, blockBounds.minX, blockBounds.maxX),
                             clamp(brushTip.y, blockBounds.minY, blockBounds.maxY),
@@ -145,7 +156,7 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
                     }
 
                     bestDistanceSqr = distanceSqr;
-                    bestContact = new BrushContact(pos.immutable(), state, findNearestFace(pos, brushTip), hitLocation);
+                    bestContact = new BrushContact(pos.immutable(), state, findNearestFace(blockBounds, brushTip), hitLocation);
                 }
             }
         }
@@ -153,13 +164,13 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
         return bestContact;
     }
 
-    private Direction findNearestFace(BlockPos pos, Vec3 point) {
-        double west = Math.abs(point.x - pos.getX());
-        double east = Math.abs(point.x - (pos.getX() + 1.0D));
-        double down = Math.abs(point.y - pos.getY());
-        double up = Math.abs(point.y - (pos.getY() + 1.0D));
-        double north = Math.abs(point.z - pos.getZ());
-        double south = Math.abs(point.z - (pos.getZ() + 1.0D));
+    private Direction findNearestFace(AABB bounds, Vec3 point) {
+        double west = Math.abs(point.x - bounds.minX);
+        double east = Math.abs(point.x - bounds.maxX);
+        double down = Math.abs(point.y - bounds.minY);
+        double up = Math.abs(point.y - bounds.maxY);
+        double north = Math.abs(point.z - bounds.minZ);
+        double south = Math.abs(point.z - bounds.maxZ);
 
         Direction bestFace = Direction.WEST;
         double bestDistance = west;
@@ -198,11 +209,11 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
     }
 
     private void playBrushSound(Level level, BrushContact contact) {
-        if (contact.state().getBlock() instanceof BrushableBlock brushableBlock) {
-            level.playLocalSound(contact.hitLocation().x, contact.hitLocation().y, contact.hitLocation().z,
-                    brushableBlock.getBrushSound(), SoundSource.BLOCKS,
-                    1.0F, 1.0F, false);
-        }
+        SoundEvent sound = isBrushable(contact.state()) ? ((BrushableBlock) contact.state().getBlock()).getBrushSound() : SoundEvents.BRUSH_GENERIC;
+        level.playLocalSound(contact.hitLocation().x, contact.hitLocation().y, contact.hitLocation().z, sound, SoundSource.BLOCKS, 1.0F, 1.0F, false);
+    }
+    private boolean isBrushable(BlockState state) {
+        return state.getBlock() instanceof BrushableBlock;
     }
 
     private void sendBrushPacket(InteractionHand hand, BlockPos pos, Direction hitFace, Vec3 hitLocation) {
