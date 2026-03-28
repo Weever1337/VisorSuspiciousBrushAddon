@@ -69,7 +69,7 @@ public class TaskBrushSuspiciousBlock extends VisorTask {
             return;
         }
 
-        var poseData = VisorAPI.client().getVRLocalPlayer().getPoseData(PlayerPoseType.TICK);
+        var poseData = VisorAPI.client().getVRLocalPlayer().getPoseData(PlayerPoseType.RELATIVE);
         var handPose = handType == HandType.MAIN ? poseData.getMainHand() : poseData.getOffhand();
         Vec3 handDirection = normalizeOrZero(handPose.getDirection());
         Vec3 brushTip = toVec3(handPose.getCustomVector(new Vector3f(AddonUtils.BRUSH_TIP_OFFSET))).add(toVec3(handPose.getPosition()));
